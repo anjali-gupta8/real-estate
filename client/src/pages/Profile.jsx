@@ -1,12 +1,69 @@
+import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 
 export default function Profile() {
   const { currentUser }=useSelector((state)=>state.user);
+  const fileRef=useRef(null);
+  const [file, setFile]=useState(undefined);
+  const [filePerc, setFilePerc]=useState(0);
+  const [fileUploadError, setFileUploadError]=useState(false);
+  const [formData, setFormData]=useState({});
+
+  useEffect(()=>{
+    if(file){
+      handleFileUpload(file);
+    }
+  }, [file]);
+
+  const handleFileUpload=(file)=>{
+    const formDataCloud=new FormData();
+    formDataCloud.append('file', file);
+    formDataCloud.append('upload_preset', 'real_estate_unsigned');
+
+    const xhr=new XMLHttpRequest();
+
+    xhr.upload.onprogress=(event)=>{
+      if(event.lengthComputable){
+        const progress=(event.loaded/event.total)*100;
+        setFilePerc(Math.round(progress));
+      }
+    }
+
+    xhr.onload=()=>{
+      if(xhr.status===200){
+        const data=JSON.parse(xhr.responseText);
+        setFormData({...formData, avatar: data.secure_url});
+      }
+      else{
+        setFileUploadError(true);
+      }
+    }
+
+    xhr.onerror=()=>{
+      setFileUploadError(true);
+    }
+
+    xhr.open('POST', 'https://api.cloudinary.com/v1_1/dvonrqy25/image/upload');
+
+    xhr.send(formDataCloud);
+  }
   return (
     <div className="p-3 max-w-lg mx-auto">
       <h1 className="text-3xl font-semibold text-center my-7">Profile</h1>
       <form className="flex flex-col gap-4">
-        <img src={currentUser.avatar} alt="profile" className="rounded-full h-24 w-24 object-cover cursor-pointer self-center mt-2" />
+        <input onChange={(e)=>setFile(e.target.files[0])} type='file' ref={fileRef} hidden accept="image/*" />
+        <img onClick={()=>fileRef.current.click()} src={formData.avatar || currentUser.avatar} alt="profile" className="rounded-full h-24 w-24 object-cover cursor-pointer self-center mt-2" />
+        <p className="text-sm self-center">
+          {fileUploadError? (
+            <span className="text-red-700">Error image upload</span>
+          ) : filePerc>0 && filePerc<100 ? (
+            <span className="text-slate-700">{`Uploading ${filePerc}%`}</span>           
+          ) : filePerc===100 ? (
+            <span className="text-green-700">Image successfully uploaded!</span>            
+          ) : (
+            ''
+          )}
+        </p>
         <input type="text" placeholder="username" id="username" className="border p-3 rounded-lg" />
         <input type="email" placeholder="email" id="email" className="border p-3 rounded-lg" />
         <input type="text" placeholder="password" id="password" className="border p-3 rounded-lg" />
